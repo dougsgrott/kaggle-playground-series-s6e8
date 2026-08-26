@@ -1,0 +1,448 @@
+# ============================================================================ #
+# Competition profile — the single per-competition configuration consumed by
+# every wikikit mirror and analysis command.
+#
+# Re-targeting the pipeline at a different competition starts (and mostly ends)
+# with rewriting this file. The one domain-specific piece that can stay in
+# code is score_archetypes() — supply it in the [hooks] module when the
+# generic scorer (distinct hard-keyword hits) isn't good enough.
+#
+# ---------------------------------------------------------------------------- #
+# S6E8 in one paragraph (what the vocabulary below is tuned for):
+#   Binary classification of `addicted_label`, scored on ROC AUC, over a tiny
+#   synthetic table: age, gender, daily_screen_time_hours, social_media_hours,
+#   gaming_hours, sleep_hours, notifications_per_day, work_study_hours — every
+#   column carrying missing values, at different rates in train vs test. With
+#   only ~8 raw features the differentiation happens elsewhere: reverse-
+#   engineering the generator (exact float values act as lookup keys), turning
+#   missingness itself into signal, neural tabular models, and industrial-scale
+#   OOF blending. Keyword counts in the comments are notebooks-containing /
+#   total-occurrences, measured over CODE CELLS ONLY of the 579 mirrored
+#   notebooks (markdown is not part of the cleaned source the tagger reads).
+# ============================================================================ #
+
+[competition]
+slug = "playground-series-s6e8"          # Kaggle competition slug (default for --competition)
+title = "Playground Series S6e8"        # display name used in generated page titles
+
+# ---------------------------------------------------------------------------- #
+# Pillars: which capture/analysis tracks run. Default is all four; hackathons
+# without a meaningful leaderboard typically drop "leaderboard".
+# A 2,987-team public leaderboard clustered in the 5th decimal is the central
+# artifact of this competition — all four pillars stay enabled.
+# ---------------------------------------------------------------------------- #
+#[pillars]
+#enabled = ["competition", "discussions", "notebooks", "leaderboard"]
+
+# ---------------------------------------------------------------------------- #
+# Hooks: a .py file next to this toml providing competition-specific logic
+# (currently: score_archetypes). See wiki_hooks.py for a commented stub.
+# The generic scorer (2.0 x distinct hard hits) is adequate here: the hard sets
+# below are sized comparably (4-6 words) so no archetype structurally outbids
+# the others.
+# ---------------------------------------------------------------------------- #
+#[hooks]
+#module = "wiki_hooks"
+
+# ---------------------------------------------------------------------------- #
+# Output roots, relative to this file's directory. Rarely needed.
+# ---------------------------------------------------------------------------- #
+#[paths]
+#wiki = "wiki"
+#analysis = "analysis"
+
+# ---------------------------------------------------------------------------- #
+# Reference solution: what "novelty" is measured against. Every notebook is
+# scored for shingle similarity to the code under `dir`; near-verbatim copies
+# are tagged with `clone_archetype`, and notebooks below `novel_sim_ceil`
+# similarity earn the novel flag. Delete this whole section if the competition
+# has no meaningful reference — the clone/novel concepts then become inert.
+#
+# LEFT OFF DELIBERATELY: S6E8 has no vendored baseline to point `dir` at, and
+# no single kernel everyone forks. The natural candidates, if one is ever
+# checked out locally, are:
+#   * cdeotte/simple-xgb-starter — the host-blessed starter (36 votes), but
+#     "simple xgb starter"/"cdeotte" appear 0x in the corpus: nobody credits it
+#     in code, so a clone axis anchored there would be mostly empty.
+#   * najiama/s6e8-addiction-lb-0-97113 + szymonkapiski's "S6E8 OOF library
+#     (47 models)" dataset — what the top of the board actually recycles
+#     ("oof library" 16 nb / 24 hits in code, `kagglehub` 124 nb). These are
+#     published as OOF/submission CSVs rather than as source, so shingle
+#     similarity against them would measure nothing.
+# The `public-oof-pool` archetype below captures that reuse instead.
+# ---------------------------------------------------------------------------- #
+#[reference]
+#dir = "vendor"               # directory (relative to this file) with the reference code
+#label = "the Baseline"       # prose name in generated docs
+#short_label = "Baseline"     # terse form for table headers / legends
+#clone_archetype = "baseline-clone"  # archetype label given to near-verbatim copies
+#novel_sim_ceil = 0.3         # similarity at/above which a notebook is NOT novel
+#color = "#000000"            # clone color on the cluster map
+
+# ---------------------------------------------------------------------------- #
+# Feature lexicon (Phase 2 recall net): category -> keywords, matched
+# case-insensitively on whole words in the cleaned source. Deliberately
+# domain-specific; generic terms (bare "value") are too noisy.
+# Category keys become the lexicon feature columns everywhere downstream.
+#
+# INVARIANT: keyword_hits is computed from THIS table only, so every
+# [[archetype]].hard word further down must also appear here verbatim (same
+# spelling, same separator — the matcher is \b<literal>\b, so "meta model" and
+# "meta_model" are two different keys).
+# ---------------------------------------------------------------------------- #
+[lexicon]
+
+# The generator forensics thread: the synthetic sampler emitted a small set of
+# exact float values per column, so the exact value works as a categorical
+# lookup key rather than a magnitude. Drives the Lookup-Transformer family,
+# value-level target encoding, and the max_bin arguments on the forum.
+generator_forensics = [
+    "lookup", "lookup_table", "lookup key",     # 24/86, 3, 1 nb
+    "exact value", "exact values",              # 6, 8 nb
+    "generator", "synthetic", "artifact",       # 33, 31, 8 nb
+    "digit", "decimal", "rounding",             # 39, 30, 12 nb
+    "max_bin",                                  # 52 nb — the discussed +0.0024 lever
+    "frequency encoding", "value_counts",       # 26, 261 nb
+    "nunique", "unique values", "duplicated",   # 169, 35, 113 nb
+]
+
+# Missingness as signal, not as a nuisance. Every column has NaNs and train/test
+# missingness rates differ in all twelve columns (forum thread 732427), so the
+# NaN pattern is itself a feature. Routine imputation vocabulary lives here too
+# — choosing an imputer is something every competitor must do, so it is recall
+# tier only and never a `hard` key.
+missing_data = [
+    "missingness", "missing_count", "n_missing",   # 97, 106, 60 nb
+    "missing_mask", "missing_pattern", "missing_rate",  # 16, 6, 13 nb
+    "isna", "isnull", "fillna", "indicator",
+    "imputer", "simpleimputer", "iterativeimputer", "knnimputer",
+]
+
+# Gradient-boosted trees: the workhorse. Hyperparameter names are included
+# because they survive cleaning and separate "trained a GBDT" from "imported
+# lightgbm to load a pickle".
+gbdt = [
+    "lightgbm", "xgboost", "catboost",             # 249, 218, 159 nb
+    "lgbmclassifier", "xgbclassifier", "catboostclassifier",  # 193, 173, 135 nb
+    "histgradientboostingclassifier",              # 44 nb
+    "num_leaves", "min_child_samples",             # 200, 140 nb
+    "colsample_bytree", "subsample", "n_estimators", "learning_rate",
+    "num_boost_round", "lgb.train", "best_iteration",
+    "cat_features", "categorical_feature",         # 111, 54 nb
+    "feature_importances_", "scale_pos_weight",
+]
+
+# Neural tabular models. RealMLP/TabM/lookup-transformers are the real signal
+# here; the torch scaffolding words give recall.
+neural_tabular = [
+    "realmlp", "tabm", "tabnet", "pytabkit",       # 32, 18, 10, 13 nb
+    "nn.module", "nn.linear", "nn.embedding",      # 35, 31, 24 nb
+    "bcewithlogitsloss", "adamw", "scheduler",     # 24, 35, 18 nb
+    "torch", "cuda", "batch_size", "dataloader",
+    "embedding", "mlp", "transformer", "attention", "dropout",
+    "rank_gauss", "quantiletransformer", "standardscaler",
+    "keras", "tensorflow", "fastai",
+]
+
+# Hands-off model search — a genuinely different posture from hand-tuned GBDTs.
+automl = [
+    "flaml", "autogluon", "h2o",                   # 30, 4, 2 nb
+    "lazypredict", "keras_tuner", "bluecast",      # 3, 3, 1 nb
+]
+
+# Hyperparameter search. Something many competitors bolt onto whatever model
+# they already chose, so it is a flavor axis more than an approach.
+tuning = [
+    "optuna", "create_study", "study.optimize", "n_trials",  # 66, 45, 36, 46 nb
+    "gridsearchcv", "randomizedsearchcv",                    # 12, 10 nb
+]
+
+# Post-hoc fusion of prediction vectors: rank-space blending, weight search,
+# hill climbing. Distinct from `stacking` — no meta-model is trained.
+blending = [
+    "rankdata", "rank blend", "rank average",      # 124, 18, 11 nb
+    "blend", "blending", "ensemble",
+    "blend weights", "blend_weights",              # 16, 5 nb
+    "hill climbing", "hill climb", "hill_climb",   # 6, 3, 3 nb
+    "caruana", "nnls", "votingclassifier",         # 4, 2, 8 nb
+    "logit", "geometric mean",                     # 55, 3 nb
+]
+
+# Train a second-level model on the OOF matrix.
+stacking = [
+    "stacking", "stacker",                         # 25, 8 nb
+    "meta model", "meta_model",                    # 8, 9 nb
+    "oof matrix", "oof_matrix",                    # 11, 15 nb
+    "base models", "stackingclassifier", "level 2",  # 16, 3, 13 nb
+    "oof", "oof_preds", "logisticregression", "ridge",
+]
+
+# Artifacts imported from outside one's own pipeline: the public OOF/submission
+# libraries the top of the board recycles, the hunted-for "original" dataset,
+# and teacher/student distillation off other people's predictions.
+external_pool = [
+    "oof library", "oof_library", "public oof",    # 16, 2, 13 nb
+    "diversity", "decorrelated",                   # 30, 5 nb
+    "kagglehub", "original dataset", "original data",
+    "pseudo_labels",                               # 1 nb (spelled-out forms: 0)
+    "transductive", "teacher", "student",          # 4, 7, 8 nb
+]
+
+# The CV machinery everybody must set up. Recall tier only, by design: picking
+# a fold scheme is a required choice, not a strategy.
+validation = [
+    "stratifiedkfold", "kfold", "cross_val_score", "cross_val_predict",
+    "train_test_split", "fold_scores", "early_stopping_rounds", "eval_set",
+    "holdout", "shuffle", "np.random.seed", "seeds",
+]
+
+# Is my 5th decimal real? The competition's defining anxiety — 27 teams at
+# 0.97086, a seed change moving you 60 places. Separated from `validation`
+# because measuring the measurement IS a strategy here.
+robustness = [
+    "adversarial validation", "adversarial",       # 9, 23 nb
+    "spearmanr", "auc_std", "ablation",            # 22, 7, 13 nb
+    "n_repeats", "repeatedstratifiedkfold", "bootstrap",  # 15, 9, 9 nb
+    "leakage", "leak", "overfitting", "public lb", # 44, 30, 7, 21 nb
+    "drift", "audit", "probe", "noise",            # 18, 27, 12, 35 nb
+    "calibration", "isotonic",                     # 18, 8 nb
+]
+
+# Building features out of eight columns: encodings, ratios, bins, splines.
+feature_engineering = [
+    "feature engineering", "target encoding", "targetencoder", "target encoder",
+    "smoothing", "interaction", "ratio", "residual",   # 46, 64, 83, 49 nb
+    "kbinsdiscretizer", "binning", "quantile", "spline",  # 10, ~20, 81, 9 nb
+    "monotone", "polynomial", "groupby",
+    "onehotencoder", "ordinalencoder", "labelencoder", "get_dummies",
+]
+
+# Exploration and interpretation.
+eda = [
+    "missingno", "pairplot", "violinplot", "crosstab",  # 8, 19, 10, 28 nb
+    "countplot", "histplot", "boxplot", "heatmap",      # 90, 78, 77, 136 nb
+    "seaborn", "matplotlib", "plotly",
+    "correlation", "corr", "describe", "distribution",
+    "shap", "permutation importance",                   # 11, 12 nb
+]
+
+# The competition's own nouns. Handed to every competitor by the data itself,
+# so these are clustering flavor only and never appear in a `hard` set.
+domain = [
+    "addicted_label", "daily_screen_time_hours", "social_media_hours",
+    "gaming_hours", "sleep_hours", "notifications_per_day", "work_study_hours",
+    "age", "gender", "age_group", "screen_time", "addiction", "smartphone",
+]
+
+# ---------------------------------------------------------------------------- #
+# Optional extensions to the generic import->category map (torch->learned,
+# numpy->numeric, ... are built in). Add libraries central to the new domain,
+# e.g.  timm = "learned".
+#
+# The built-in map lumps xgboost/lightgbm/catboost in with torch under
+# "learned"; on a tabular competition that erases the single most important
+# distinction, so the three boosters are re-tagged "gbdt" here.
+# ---------------------------------------------------------------------------- #
+[import_tags]
+lightgbm = "gbdt"                  # 249 nb
+xgboost = "gbdt"                   # 218 nb
+catboost = "gbdt"                  # 159 nb
+
+pytabkit = "learned"               # 13 nb — RealMLP lives here
+tabm = "learned"                   # 3 nb (import form; 18 nb mention the class)
+torch_frame = "learned"            # 1 nb
+tabfm = "learned"                  # 2 nb
+rtdl_num_embeddings = "learned"    # 2 nb — PLR / periodic embeddings
+rtdl_revisiting_models = "learned" # 2 nb
+pytorch_tabnet = "learned"         # 2 nb
+
+flaml = "automl"                   # 28 nb
+autogluon = "automl"               # 4 nb
+h2o = "automl"                     # 4 nb
+lazypredict = "automl"             # 3 nb
+bluecast = "automl"                # 2 nb
+keras_tuner = "automl"             # 2 nb
+
+optuna = "tuning"                  # 59 nb
+
+cuml = "gpu"                       # 22 nb
+cupy = "gpu"                       # 6 nb
+cudf = "gpu"                       # 2 nb
+
+kagglehub = "external"             # 122 nb — OOF libraries / original dataset
+category_encoders = "encoding"     # 3 nb
+imblearn = "resampling"            # 14 nb
+missingno = "viz"                  # 8 nb
+shap = "explain"                   # 11 nb
+polars = "numeric"                 # 8 nb
+
+# ---------------------------------------------------------------------------- #
+# Leaderboard analytics: teams to track across snapshots. Entries match
+# case-insensitively against the team name or member usernames — prefer
+# usernames (stable; team names can be renamed).
+# Ranks are from the 2026-08-26T14:22 snapshot.
+# ---------------------------------------------------------------------------- #
+[leaderboard]
+watchlist = [
+    "dougsgrott",         # us
+
+    # --- current top of the public board ---
+    "cdeotte",            #   1  0.97184  (also publishes the XGB/NN starters)
+    "antoinegg1",         #   2  0.97154
+    "milanfx",            #   3  0.97149
+    "kirill0212",         #   4  0.97140
+    "n0va007",            #   5  0.97134
+    "maherelouahabi",     #   6  0.97134
+    "donmarch14",         #   7  0.97134  (publishes S6E8 LGBM / CatBoost)
+    "optimistix",         #   8  0.97132
+    "citerne",            #   9  0.97132
+    "andreyshpigar",      #  10  0.97132
+
+    # --- high-signal notebook authors, ranked and worth watching move ---
+    "ravi20076",          #  12  L2Stack V1
+    "thisray",            #  14  Addiction Blend LB 0.97117
+    "szymonkapiski",      #  15  honest OOF blend + the 47-model OOF library
+    "nikita7364777",      #  16  Rank blend 65/35
+    "azzamradman",        #  20  blender/liner experiments
+    "atakanaldemir",      #  22  Regime-Calibrated Rank Fusion
+    "anthonytherrien",    #  39  NN Residual Network
+    "hboyang",            #  47  Rank-Logit-Regime Fusion
+    "souvikdbiswas",      #  66  Dual Master Rank Blend
+    "najiama",            #  84  top-voted notebook (82); the OOF/submission library
+    "amanatar",           # 115  Elite Rank Average Ensemble
+    "raykkretzschmar",    # 133  "Why every notebook above 0.97110 overfits" (64 votes)
+    "adarsh1077",         # 144  Diversity Beats Strength (57 votes)
+    "dariushafshar",      # 153  prolific audit/ablation author
+    "daniilkrasnovvv",    # 245
+    "tamerlanomralinov",  # 277  Lookup-Transformer
+    "georgymamarin",      # 307  private-split survival analysis
+    "omidbaghchehsaraei", # 472  RealMLP / TabM / FT-Transformer ports
+    "chovyxu",            # 496  exact-frequency / behavior-digit CatBoost
+
+    # --- unranked but drive the discussion vocabulary ---
+    "mpwolke",            # Nomophobia Optuna XGB (56 votes)
+    "tomasa2",            # 505  "What Moved the Score, and What Didn't"
+]
+
+# ---------------------------------------------------------------------------- #
+# Tagger auxiliaries: train_words are actual training-loop evidence —
+# distinguishes "does ML" from "imports torch".
+# The scaffold default is torch-only, which would call ~90% of this corpus
+# untrained: on a tabular board most fitting happens in a booster or an sklearn
+# estimator, so the GBDT/sklearn fit vocabulary is added. All counts below are
+# notebooks-containing, code cells only.
+# ---------------------------------------------------------------------------- #
+[tagger]
+train_words = [
+    # torch-style loops
+    "backward", "optimizer", "zero_grad", "requires_grad",  # 46, 39, 42, 6 nb
+    "criterion", "dataloader", "epoch", "epochs",           # 16, 19, 39, 44 nb
+    # booster / sklearn fitting
+    "fit",                        # 458 nb
+    "lgb.train", "xgb.train",     # 44, 13 nb
+    "num_boost_round",            # 48 nb
+    "early_stopping_rounds",      # 138 nb
+    "eval_set",                   # 197 nb
+    "best_iteration",             # 72 nb
+    "cross_val_score",            # 40 nb
+    "predict_proba",              # 390 nb
+]
+
+# ---------------------------------------------------------------------------- #
+# Archetypes: the primary approach labels, in display/priority order.
+#   hard  — discriminating keywords precise enough to be trusted alone (the
+#           tagger's precision tier; [lexicon] above is the recall tier).
+#   color — cluster-map color; omit to auto-assign from a fixed palette.
+# Structural labels (baseline/template, unknown, and the reference clone) are
+# appended automatically — do not list them here.
+#
+# Order matters twice: it is the display order, and the generic scorer's ties
+# resolve to whichever archetype is declared first. Most-strategy-signal first,
+# so a notebook that reverse-engineers the generator AND trains an LGBM is
+# filed under the former.
+# ---------------------------------------------------------------------------- #
+
+# The deepest read of this dataset: the generator emitted a small set of exact
+# float values per column, so the value is a categorical key. Yields the
+# Lookup-Transformer, value-level target encoding, and the max_bin arguments.
+[[archetype]]
+name = "generator-forensics"
+hard = ["lookup", "exact value", "exact values", "max_bin", "frequency encoding"]
+color = "#0072B2"
+
+# Missingness engineered as signal — the competition's second real discovery
+# (train and test differ in missingness rate in all twelve columns). Note the
+# routine fillna/imputer vocabulary is deliberately NOT here: everyone imputes.
+[[archetype]]
+name = "missingness-signal"
+hard = ["missingness", "missing_count", "n_missing", "missing_mask", "missing_rate"]
+color = "#D55E00"
+
+# Tabular deep learning: RealMLP, TabM, TabNet, residual MLPs, lookup
+# transformers. `torch` itself is left out — it fires on notebooks that only
+# import it; the import_tags map already records that.
+[[archetype]]
+name = "neural-tabular"
+hard = ["realmlp", "tabm", "tabnet", "pytabkit", "nn.module", "bcewithlogitsloss"]
+color = "#009E73"
+
+# Fusing other people's published OOF/submission libraries rather than one's own
+# models — the behavior that produced the 0.9712 plateau. Low frequency, high
+# precision: these words essentially only occur when it is happening.
+[[archetype]]
+name = "public-oof-pool"
+hard = ["oof library", "oof_library", "public oof", "decorrelated", "diversity"]
+color = "#CC79A7"
+
+# Rank-space / weight-space fusion with no meta-model: rankdata, weight search,
+# hill climbing, Caruana selection.
+[[archetype]]
+name = "rank-blend-fusion"
+hard = ["rankdata", "rank blend", "rank average", "blend weights", "hill climbing", "caruana"]
+color = "#E69F00"
+
+# Second-level model trained on the OOF matrix.
+[[archetype]]
+name = "oof-stacking"
+hard = ["stacking", "stacker", "meta model", "meta_model", "oof_matrix", "base models"]
+color = "#56B4E9"
+
+# Measuring the measurement: adversarial validation, repeated/bootstrapped CV,
+# seed-variance and ablation studies, public-vs-private survival analysis.
+[[archetype]]
+name = "validation-forensics"
+hard = ["adversarial validation", "spearmanr", "auc_std", "ablation", "n_repeats",
+        "repeatedstratifiedkfold"]
+color = "#E5B300"
+
+# Deriving features from the eight raw columns: target/frequency encoding,
+# interactions, bins, splines.
+[[archetype]]
+name = "feature-engineering"
+hard = ["target encoding", "targetencoder", "kbinsdiscretizer", "interaction", "spline",
+        "smoothing"]
+
+# Hand the search to a framework.
+[[archetype]]
+name = "automl"
+hard = ["flaml", "autogluon", "h2o", "lazypredict", "keras_tuner"]
+
+# Tuned-by-search, model family incidental.
+[[archetype]]
+name = "hpo-search"
+hard = ["optuna", "create_study", "study.optimize", "n_trials", "gridsearchcv",
+        "randomizedsearchcv"]
+
+# The workhorse. Kept to four keys on purpose: `lightgbm` alone appears in 249
+# of 579 notebooks, and a wider hard set here would structurally outbid every
+# specialized archetype above.
+[[archetype]]
+name = "gbdt-modeling"
+hard = ["lightgbm", "xgboost", "catboost", "num_leaves"]
+
+# Explored but never fit. Ranked last so any notebook that also models wins on
+# its modeling keys; EDA then survives as a secondary tag, which is the useful
+# reading. `[tagger].train_words` is the independent check on "no training".
+[[archetype]]
+name = "eda-only"
+hard = ["missingno", "pairplot", "violinplot", "crosstab", "countplot"]

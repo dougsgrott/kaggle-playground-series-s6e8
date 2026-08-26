@@ -1,0 +1,12 @@
+
+# wikikit generated outputs
+wiki/
+analysis/
+
+# competition data and model artifacts
+data/
+oof/
+submissions/*.csv
+.venv/
+__pycache__/
+*.pyc
