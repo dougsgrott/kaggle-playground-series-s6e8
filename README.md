@@ -20,6 +20,9 @@ uv run kaggle competitions download -c playground-series-s6e8 -p data/ && (cd da
 uv run python scripts/make_folds.py     # -> data/folds.npy, the frozen partition
 uv run python scripts/check_env.py      # gate: libraries, GPU, shapes, invariants
 uv run python scripts/benchmark.py      # real per-member training cost
+
+uv run python scripts/train_member.py --model xgb_baseline --submit-tag xgb_baseline
+uv run python scripts/make_submission.py --from xgb_baseline
 ```
 
 ## Knowledge base

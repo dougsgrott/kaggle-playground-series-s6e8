@@ -16,15 +16,45 @@ One row per measured change. Negative results included — they are the point.
 | 2026-08-26 | 001c | **`max_bin` 255 → 2047** (at leaves 255) | 0.96303 | **+0.00142** | 28× | — | vs 001b; corpus reports +0.0024 on raw columns, same direction and order |
 | 2026-08-26 | 001d | XGBoost GPU, depth 7, 400 rounds | 0.95894 | — | — | — | 27.2 s/fold — the cheapest member by 4–8× |
 | 2026-08-26 | 001e | CatBoost GPU, depth 6, native cats, 200 rounds | 0.94124 | — | — | — | undertrained at lr 0.05; timing reference only |
+| 2026-08-26 | 004 | **`xgb_baseline`** — `cdeotte__simple-xgb-starter.py` ported verbatim to the frozen folds | **0.964869** (pooled OOF) | — | — | **0.96640** | offset +0.001531, within 1e-4 of the corpus line; ~rank 1154/2987 |
 
-**These are single-fold, deliberately undertrained probes from `scripts/benchmark.py`, not OOF
-numbers.** They exist to confirm the two biggest published levers reproduce on our own data before
+**Row 004 is a real pooled OOF number. Rows 001a–001e are single-fold, deliberately undertrained
+probes from `scripts/benchmark.py`, not OOF numbers.** They exist to confirm the two biggest published levers reproduce on our own data before
 Phase 2 commits to them, and they do: capacity first, then `max_bin`. Treat the magnitudes as
 indicative — 200 rounds at lr 0.05 is far from converged, and `max_bin` and value encoding are
 substitutes, so the +0.00142 will shrink once target/frequency encoding is added.
 
 The proper noise floor (repeated 5-fold across 3 partition seeds) has **not** been measured
 locally yet — that is issue 003. The `× floor` column above uses the corpus value of 0.00005.
+
+### What `xgb_baseline` established
+
+| | |
+|---|---|
+| pooled OOF AUC | **0.964869** |
+| per-fold | 0.96423 · 0.96483 · 0.96480 · 0.96585 · 0.96464 |
+| fold mean ± sd | 0.964871 ± 0.000600 |
+| **fold range** | **0.001629** |
+| best iterations | 2802, 2521, 2641, 2818, 2764 (cap 3000) |
+| cost | 8.5 min, ~100 s/fold, GPU |
+
+Three things worth carrying forward:
+
+1. **The fold range is 0.001629 — roughly 33× the corpus noise floor of 0.00005.** This is the
+   concrete version of the warning in the rules block above: reading per-fold spread as
+   uncertainty would make every gain below ~0.0016 look unmeasurable, when the real threshold is
+   two orders of magnitude smaller. Issue 003 replaces the borrowed constant.
+2. **Early stopping barely bound** — best iterations ran 2521–2818 against a 3000 cap, so the
+   starter's `n_estimators` is close to limiting. Not tuned here on purpose (this member is a
+   calibration point, ported verbatim), but any future XGBoost member should raise the cap.
+3. **The published CV→LB line transfers.** Predicted offset +0.001629, observed **+0.001531** —
+   residual −9.8e-05, inside the range a single public score cannot resolve. Until we have our own
+   higher-CV points, the corpus line is usable as a pre-submission sanity check. Detail:
+   [`../submissions/log.md`](../submissions/log.md).
+4. **The OOF is mildly optimistic.** Early stopping selects the iteration count on the same
+   validation fold the OOF is scored on. That is what the source notebook and the wider corpus do,
+   so the number stays comparable to published ones — but it is not a clean nested estimate, and
+   stack members whose weights get fitted must not inherit the habit.
 
 ---
 

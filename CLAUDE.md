@@ -95,13 +95,22 @@ uv run kaggle competitions download -c playground-series-s6e8 -p data/
 (cd data && unzip -o playground-series-s6e8.zip && rm playground-series-s6e8.zip)
 ```
 
+Members and submissions:
+
+```bash
+uv run python scripts/train_member.py --model <name> [--submit-tag <tag>]
+uv run python scripts/make_submission.py --from <name> [--tag <tag>] [--rank]
+uv run kaggle competitions submit playground-series-s6e8 -f submissions/<tag>.csv -m "<tag>"
+```
+
+`train_member.py` runs a registered member from `src/s6e8/models.py` over `data/folds.npy`,
+enforces the OOF contract through `src/s6e8/cv.py`, and writes `oof/oof_<name>.npy` +
+`oof/test_<name>.npy`. Long runs go in the background with `PYTHONUNBUFFERED=1`.
+
 Built as the roadmap phases land — do not assume these exist yet:
 
 ```bash
-uv run python scripts/train_member.py --model <name>        # Phase 2 -> oof/oof_<name>.npy + oof/test_<name>.npy
 uv run python scripts/build_stack.py                        # Phase 3 -> nested-CV stack over oof/
-uv run python scripts/make_submission.py --from <artifact>  # Phase 3 -> submissions/<tag>.csv
-uv run kaggle competitions submit playground-series-s6e8 -f submissions/<tag>.csv -m "<tag>"
 ```
 
 ## Environment traps (measured 2026-08-26, see `docs/issues/001-phase-0-ground-truth.md`)

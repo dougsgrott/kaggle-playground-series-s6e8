@@ -50,13 +50,19 @@ own members, selected on nested CV.
 
 | milestone | OOF | expected LB |
 |---|---|---|
-| Phase 1 baseline (ported XGB starter) | ~0.9640 | ~0.9655 |
+| Phase 1 baseline (ported XGB starter) | **0.964869 actual** | **0.96640 actual** |
 | Single tuned member with value encodings | ~0.9686 | ~0.9700 |
 | Phase 3 honest stack of ~20 own members | **0.9690–0.9705** | **0.9702–0.9716** |
 | Phase 4 plateau-consensus pick (pick B) | — | ~0.9712 |
 
 The CV→LB offset is **a line, not a constant** — it decays from +0.00150 at CV 0.9660 to +0.00109
 at CV 0.9696 (`corr = −0.99`). Fit it from our own submissions; do not pin a value.
+
+**First point measured (issue 004):** CV 0.964869 → LB 0.96640, offset **+0.001531** against a
+predicted +0.001629 — residual −9.8e-05. The published line transfers, so it is usable as a
+pre-submission sanity check until we have higher-CV points of our own. Next points wanted at
+CV ≈ 0.967 and ≈ 0.970, spread across days: the line's value is its slope, and clustered points
+cannot measure one. Detail: [`../submissions/log.md`](../submissions/log.md).
 
 ---
 
@@ -382,19 +388,29 @@ not. Timebox is a hard stop — the known-good pipeline has priority.
 
 ## Task index
 
+Execution order is **not** numbering order — see [`issues/README.md`](issues/README.md) for why.
+Next up: **003 → 002**, with 014 running in parallel from day 2. (004 is done.)
+
 | # | phase | task | status |
 |---|---|---|---|
-| 001 | 0 | Environment, data, frozen folds | done |
-| 002 | 1 | `src/s6e8/features.py` — measured-positive feature blocks | open |
-| 003 | 1 | Noise floor + repeated-CV harness | open |
-| 004 | 1 | Port `cdeotte__simple-xgb-starter.py`, first submission | open |
-| 005 | 2 | CatBoost native-categorical member | open |
+| 001 | 0 | [Environment, data, frozen folds](issues/001-phase-0-ground-truth.md) | **done** |
+| 004 | 1 | [Baseline member + first submission](issues/004-baseline-first-submission.md) | **done** — OOF 0.964869 → LB 0.96640 |
+| 003 | 1 | [Noise floor, local measurement](issues/003-noise-floor.md) | **next** |
+| 002 | 1 | [`features.py` — measured-positive blocks](issues/002-feature-module.md) | open |
+| 007 | 2 | XGBoost GPU members across feature views — **the workhorse** | open |
+| 005 | 2 | CatBoost native-categorical member (blocked by [016](issues/016-catboost-gpu-eval-metric.md)) | open |
 | 006 | 2 | LightGBM value-encoding member (`max_bin` sweep) | open |
-| 007 | 2 | XGBoost GPU members across feature views | open |
 | 008 | 2 | Lookup-Transformer member | open |
 | 009 | 2 | RealMLP + TabM members, missingness augmentation | open |
 | 010 | 3 | Nested logit-space logistic stack + QC gates | open |
 | 011 | 3 | Regime arm, rank-mixed at 1/3 | open |
 | 012 | 4 | Public OOF benchmark + pick B | open |
 | 013 | 5 | Final selection and rationale | open |
-| 014 | R | Boundary-band research track | open |
+| 014 | R | [Boundary-band research track](issues/014-boundary-band-research.md) — day 2–3, parallel | open |
+| 015 | — | [Re-run benchmark on a quiet box](issues/015-rerun-benchmark-quiet.md) | open |
+| 016 | — | [CatBoost GPU `eval_metric`](issues/016-catboost-gpu-eval-metric.md) | open |
+
+**Phase 2 ordering note.** XGBoost GPU (007) comes before the other families: at 27 s/fold it is
+4–8× cheaper than anything else here and is immune to the CPU contention, so it is the cheapest way
+to price the new feature blocks. Budget LightGBM and CatBoost members deliberately — two or three
+each, not ten.
