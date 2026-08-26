@@ -136,3 +136,63 @@ def build_xgb_baseline(train: pd.DataFrame, test: pd.DataFrame, y: np.ndarray):
 
     fit_predict.extra = {"best_iters": best_iters}
     return fit_predict
+
+
+# --------------------------------------------------------------------------------
+# xgb_features -- the measured-positive feature set from issue 002.
+#
+# Blocks that PAID, in the order they were priced (docs/experiments.md):
+#   lattice   +0.001609   the decimal lattice -- the largest single block by 2.6x
+#   te        +0.000740   nested stringified target encoding
+#   budget    +0.000626   the accounting-identity residual and composition
+#   freq      +0.000609   transductive value counts over 987,671 rows
+#   impute    +0.000193   XGB-imputed numerics alongside the raw NaN columns
+#   decimals  +0.000112   printed decimal places, mode-filled (see features.py)
+#
+# `cat_isna` is EXCLUDED: it measured -0.000007 against a null sd of 1.8e-05 over three
+# seeds per arm -- UNRESOLVED, not positive. An unproven block is not worth three
+# columns in every member downstream.
+#
+# Unlike xgb_baseline this is a real member, not a calibration point, so early stopping
+# is back and the round cap is raised: issue 004 found the starter's 3000 barely bound
+# (best iterations 2521-2818).
+# --------------------------------------------------------------------------------
+
+FEATURE_BLOCKS = ("raw", "budget", "lattice", "decimals", "freq", "impute")
+
+FEATURES_XGB_PARAMS = dict(
+    STARTER_XGB_PARAMS, n_estimators=6000, enable_categorical=True,
+)
+
+
+@register("xgb_features")
+def build_xgb_features(train: pd.DataFrame, test: pd.DataFrame, y: np.ndarray):
+    import xgboost as xgb
+
+    from s6e8.features import NestedTargetEncoder, build_static
+
+    print(f"  {assert_xgboost_gpu()}", flush=True)
+    fs = build_static(train, test, n_jobs=n_threads())
+    cols = fs.columns(FEATURE_BLOCKS)
+    X, X_test = fs.train[cols], fs.test[cols]
+    encoder = NestedTargetEncoder(train, test, y)
+    print(f"  design matrix {X.shape[0]:,} x {X.shape[1]} static "
+          f"+ {len(encoder.names)} target-encoded", flush=True)
+
+    params = dict(FEATURES_XGB_PARAMS, device="cuda", n_jobs=n_threads())
+    best_iters: list[int] = []
+
+    def fit_predict(fold: int, train_idx: np.ndarray, valid_idx: np.ndarray):
+        # Rebuilt per fold: the encoder reads y, so it can never be precomputed.
+        e_tr, e_va, e_te = encoder.build(train_idx, valid_idx)
+        Xa = pd.concat([X.iloc[train_idx].reset_index(drop=True), e_tr], axis=1)
+        Xb = pd.concat([X.iloc[valid_idx].reset_index(drop=True), e_va], axis=1)
+        Xt = pd.concat([X_test.reset_index(drop=True), e_te], axis=1)
+
+        model = xgb.XGBClassifier(**params)
+        model.fit(Xa, y[train_idx], eval_set=[(Xb, y[valid_idx])], verbose=False)
+        best_iters.append(int(model.best_iteration) + 1)
+        return (model.predict_proba(Xb)[:, 1], model.predict_proba(Xt)[:, 1])
+
+    fit_predict.extra = {"best_iters": best_iters, "blocks": list(FEATURE_BLOCKS)}
+    return fit_predict

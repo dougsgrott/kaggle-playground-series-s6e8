@@ -1,0 +1,184 @@
+{
+  "gate": 0.00011,
+  "sigma_delta": 5.5e-05,
+  "fit_params": {
+    "n_estimators": 900,
+    "learning_rate": 0.1,
+    "max_depth": 7,
+    "min_child_weight": 15,
+    "subsample": 0.85,
+    "colsample_bytree": 0.85,
+    "reg_alpha": 0.05,
+    "reg_lambda": 3.0,
+    "objective": "binary:logistic",
+    "eval_metric": "auc",
+    "tree_method": "hist",
+    "enable_categorical": true,
+    "verbosity": 0
+  },
+  "arms": [
+    {
+      "label": "raw",
+      "blocks": [
+        "raw"
+      ],
+      "use_te": false,
+      "n_cols": 12,
+      "seeds": [
+        42,
+        2024,
+        7
+      ],
+      "aucs": [
+        0.9640110565416632,
+        0.9640093911127147,
+        0.9640011110888712
+      ],
+      "mean_auc": 0.9640071862477497
+    },
+    {
+      "label": "budget",
+      "blocks": [
+        "raw",
+        "budget"
+      ],
+      "use_te": false,
+      "n_cols": 21,
+      "seeds": [
+        42
+      ],
+      "aucs": [
+        0.9646185585628512
+      ],
+      "mean_auc": 0.9646185585628512
+    },
+    {
+      "label": "cat_isna",
+      "blocks": [
+        "raw",
+        "budget",
+        "cat_isna"
+      ],
+      "use_te": false,
+      "n_cols": 24,
+      "seeds": [
+        42
+      ],
+      "aucs": [
+        0.9646165336632513
+      ],
+      "mean_auc": 0.9646165336632513
+    },
+    {
+      "label": "lattice",
+      "blocks": [
+        "raw",
+        "budget",
+        "cat_isna",
+        "lattice"
+      ],
+      "use_te": false,
+      "n_cols": 36,
+      "seeds": [
+        42,
+        2024,
+        7
+      ],
+      "aucs": [
+        0.9662720379943777,
+        0.9662190868865899,
+        0.9662147209825802
+      ],
+      "mean_auc": 0.9662352819545159
+    },
+    {
+      "label": "decimals",
+      "blocks": [
+        "raw",
+        "budget",
+        "cat_isna",
+        "lattice",
+        "decimals"
+      ],
+      "use_te": false,
+      "n_cols": 42,
+      "seeds": [
+        42,
+        2024,
+        7
+      ],
+      "aucs": [
+        0.9663427757394246,
+        0.9663622488491781,
+        0.9664003341862042
+      ],
+      "mean_auc": 0.9663684529249356
+    },
+    {
+      "label": "freq",
+      "blocks": [
+        "raw",
+        "budget",
+        "cat_isna",
+        "lattice",
+        "decimals",
+        "freq"
+      ],
+      "use_te": false,
+      "n_cols": 54,
+      "seeds": [
+        42
+      ],
+      "aucs": [
+        0.9669773075787722
+      ],
+      "mean_auc": 0.9669773075787722
+    },
+    {
+      "label": "impute",
+      "blocks": [
+        "raw",
+        "budget",
+        "cat_isna",
+        "lattice",
+        "decimals",
+        "freq",
+        "impute"
+      ],
+      "use_te": false,
+      "n_cols": 63,
+      "seeds": [
+        42,
+        2024,
+        7
+      ],
+      "aucs": [
+        0.9671571186094411,
+        0.9671644404694393,
+        0.9671887735320741
+      ],
+      "mean_auc": 0.9671701108703181
+    },
+    {
+      "label": "te",
+      "blocks": [
+        "raw",
+        "budget",
+        "cat_isna",
+        "lattice",
+        "decimals",
+        "freq",
+        "impute"
+      ],
+      "use_te": true,
+      "n_cols": 75,
+      "seeds": [
+        42
+      ],
+      "aucs": [
+        0.967909818392633
+      ],
+      "mean_auc": 0.967909818392633
+    }
+  ]
+}

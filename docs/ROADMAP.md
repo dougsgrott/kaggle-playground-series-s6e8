@@ -153,8 +153,10 @@ encodings, never add the two published gains together.
 ### Harness
 
 - `src/s6e8/cv.py` — loads `data/folds.npy`, runs a member, writes the positional OOF contract.
-- **The noise floor is measured** (issue 003, 55 fits): **σ_delta = 0.000055**, so an ablation on
-  the frozen folds must clear **2σ = 0.00011**. σ_partition is a separate, smaller 0.000019 and
+- **The noise floor is measured** (issue 003, 55 fits): **σ_delta = 0.000055** on the starter
+  feature block, so an ablation there must clear **2σ = 0.00011**. Issue 002 then showed this is
+  **feature-set specific** — σ_model spans 7× across feature sets and is not monotonic in column
+  count — so every ablation carries its own σ rather than this one. σ_partition is a separate, smaller 0.000019 and
   applies only to comparisons across splits. The per-fold range inside one run is 22× σ_delta and
   is not an error bar — on the frozen partition it is mostly fold 3 being reproducibly easier.
   Buy precision by averaging **model seeds**, not partitions: σ_delta falls as √n.
@@ -399,8 +401,8 @@ Next up: **003 → 002**, with 014 running in parallel from day 2. (004 is done.
 | 001 | 0 | [Environment, data, frozen folds](issues/001-phase-0-ground-truth.md) | **done** |
 | 004 | 1 | [Baseline member + first submission](issues/004-baseline-first-submission.md) | **done** — OOF 0.964869 → LB 0.96640 |
 | 003 | 1 | [Noise floor, local measurement](issues/003-noise-floor.md) | **done** — σ_delta 0.000055, gate 0.00011 |
-| 002 | 1 | [`features.py` — measured-positive blocks](issues/002-feature-module.md) | **next** |
-| 007 | 2 | XGBoost GPU members across feature views — **the workhorse** | open |
+| 002 | 1 | [`features.py` — measured-positive blocks](issues/002-feature-module.md) | **done** — +0.003903 over raw, OOF 0.967910 |
+| 007 | 2 | XGBoost GPU members across feature views — **the workhorse** | **next** |
 | 005 | 2 | CatBoost native-categorical member (blocked by [016](issues/016-catboost-gpu-eval-metric.md)) | open |
 | 006 | 2 | LightGBM value-encoding member (`max_bin` sweep) | open |
 | 008 | 2 | Lookup-Transformer member | open |

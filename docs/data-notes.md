@@ -204,6 +204,34 @@ Sources: `tomasa2__s6e8-what-moved-the-score-and-what-didn-t.py` §8.1,
 `dariushafshar__exact-values-fail-as-lookup-keys.py`, `dariushafshar__s6e8-what-actually-helps.py`,
 discussion 737422.
 
+## Printed precision is a label-correlated artifact
+
+Measured 2026-08-26 (issue 002). Every fractional column is written with **1 or 2 decimals** —
+5 rows in all of train+test excepted — and which one it is carries signal:
+
+| column | P(y \| 1dp) | P(y \| 2dp) | gap |
+|---|---:|---:|---:|
+| `daily_screen_time_hours` | 0.6821 | 0.7121 | **+0.0300** |
+| `gaming_hours` | 0.6899 | 0.7112 | +0.0213 |
+| `weekend_screen_time` | 0.7248 | 0.7075 | −0.0173 |
+| `social_media_hours` | 0.7025 | 0.7102 | +0.0076 |
+| `work_study_hours` | 0.7161 | 0.7086 | −0.0075 |
+| `sleep_hours` | 0.7137 | 0.7087 | −0.0050 |
+
+Crucially the 2dp **rate itself does not shift between train and test** — |z| < 1.7 in all six
+columns — so this is a generator artifact, not part of the train/test shift, and it is safe to
+use. It has to be read from the raw CSV text: float64 cannot distinguish `1.80` from `1.8`.
+
+**But the naive version of the feature is a train/test discriminator in disguise.** A decimal-place
+column is NaN exactly where the value is missing, so its NaN mask is bit-identical to the raw
+missingness mask — and numeric missingness flags raise CV while lowering LB (see below).
+Mode-filling the missing rows keeps the precision bit and discards the missingness channel;
+84% of the measured gain survives that, confirming the gain is the artifact and not the shift.
+
+**`daily_screen_time_hours` and `weekend_screen_time` are not 2-decimal quantised** the way the
+other four are, so `floor(v * 10)` misreads the lattice (1.8 stores as 1.7999...). Use
+`rint(v * 100)`.
+
 ## Measurement discipline
 
 ### The noise floor — measured locally

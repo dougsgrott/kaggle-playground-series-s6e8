@@ -10,17 +10,22 @@ The full task index lives in [`../ROADMAP.md`](../ROADMAP.md#task-index). This t
 
 | order | # | title | est. | status |
 |---:|---|---|---|---|
-| 1 | 002 | [`features.py`, the measured-positive set](002-feature-module.md) | the real work | **next** |
+| 1 | 007 | Phase 2 — XGBoost GPU members across feature views | the main effort | **next** |
 
-**002 now has a real gate.** Issue 003 measured **σ_delta = 0.000055**, so a feature block must
-clear **2σ = 0.00011** to have measured anything. Three of its planned blocks — the decimal
-lattice, the explicit `__missing__` level, 10 encoding folds — sit at +0.0001 in the corpus and
-are therefore *under* the gate: build them, but do not book them as gains without the multi-seed
-protocol. The top four blocks (+0.0003 to +0.0023) are clear by 5×–42×.
+`xgb_features` is registered and ablated (+0.003903 over raw, OOF 0.967910 on the cheap
+fixed-round config). The first job in Phase 2 is a real OOF from it with early stopping, and a
+submission — the CV→LB line still rests on a **single** point at CV 0.9649, and a second one near
+CV 0.968 is what makes the slope usable for final selection.
 
-Also from 003, and useful throughout Phase 2: **the model seed carries twice the variance of the
-partition seed** (0.000039 vs 0.000019), so precision on a marginal ablation is bought by
-averaging model seeds — σ_delta falls as √n — not by repeating CV across partitions.
+Two findings from 002 that change how Phase 2 measures things:
+
+- **σ_model is a property of the feature set, not the box.** It spans 7× across the sets measured
+  (0.000005 → 0.000032) and is not monotonic in column count. The 0.00011 gate from issue 003 is
+  not portable; every ablation carries its own null sd. See
+  [`003`](003-noise-floor.md#amended-by-issue-002--the-gate-is-not-portable).
+- **Published deltas are substitutes and must never be summed.** `lattice`, `freq`, `te` and
+  `max_bin` all do value separation. Measured last, `te` priced at 0.32× its published value.
+  This is why 006 must sweep `max_bin` *after* the encodings, not before.
 
 ## In parallel
 
@@ -41,4 +46,5 @@ averaging model seeds — σ_delta falls as √n — not by repeating CV across 
 |---|---|---|
 | 001 | [Phase 0 — environment, data, frozen folds](001-phase-0-ground-truth.md) | done 2026-08-26 · gate PASS, 16 checks |
 | 004 | [Baseline member and the first submission](004-baseline-first-submission.md) | done 2026-08-26 · OOF 0.964869 → LB **0.96640** |
-| 003 | [Measure the noise floor locally](003-noise-floor.md) | done 2026-08-26 · 55 fits · σ_delta **0.000055**, gate **0.00011** |
+| 003 | [Measure the noise floor locally](003-noise-floor.md) | done 2026-08-26 · 55 fits · σ_delta **0.000055** (feature-set specific — amended by 002) |
+| 002 | [`features.py`, the measured-positive set](002-feature-module.md) | done 2026-08-26 · **+0.003903** over raw · 6 blocks ship, 1 UNRESOLVED |

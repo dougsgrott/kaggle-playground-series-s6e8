@@ -106,7 +106,23 @@ Local numbers in `config.py`, [`../data-notes.md`](../data-notes.md) and
 [`../experiments.md`](../experiments.md); the two `× floor` values recomputed (62×→56×, 26× from
 28×), and no remaining figure divided by the borrowed constant.
 
+## Amended by issue 002 — the gate is not portable
+
+Issue 002 re-measured σ_model on seven different feature sets and found it spans **7×**:
+0.000005 at the raw 12 columns, peaking at 0.000032 around 36 columns, back to 0.000017 at 63,
+against the **0.000039** measured here on the 34-column one-hot starter block.
+
+So **σ_delta = 0.000055 and the 0.00011 gate belong to the feature set they were measured on**,
+not to the box. Applying them uniformly would have been far too strict at the raw end and too
+loose in the middle. It is also *not* monotonic in column count — seed sensitivity peaks where
+many columns are comparably useful and `colsample_bytree` has real choices, and collapses when
+the model has either too little to choose from or one dominant feature to lock onto.
+
+Everything else here stands: the two-quantity distinction, model seed beating partition seed, the
+per-fold range being a property of the split, and the multi-seed protocol. What changes is that an
+ablation must carry **its own** σ rather than borrow this one. `scripts/ablate_features.py` reports
+one per arm and computes each comparison's null sd as `sqrt(σa²/na + σb²/nb)`.
+
 ## Next
 
-Issue 002 (feature module) — now with a real gate of **2σ_delta = 0.00011** and a reason to run
-multiple model seeds per arm on any block whose expected gain is near it.
+Issue 002 (feature module) — **done 2026-08-26**, +0.003903 over raw.

@@ -85,6 +85,14 @@ SIGMA_DELTA = 5.5e-5
 
 # The default gate. An ablation on the frozen folds must clear 2 * SIGMA_DELTA
 # = 1.1e-4 to have measured anything; two identical runs were observed 1.0e-4 apart.
+#
+# *** This is a STARTING POINT, not a constant. *** Issue 002 measured sigma_model across
+# seven feature sets and found it spans 7x (5e-6 at 12 raw columns to 3.9e-5 at the 34
+# one-hot starter block these constants come from), and it is NOT monotonic in column
+# count -- it peaks near 36 columns and falls again once dominant features arrive. Seed
+# sensitivity is highest when many columns are comparably useful and colsample_bytree has
+# real choices to make. Any ablation that matters must carry its own sigma; see
+# scripts/ablate_features.py, which reports one per arm.
 NOISE_FLOOR = SIGMA_DELTA
 
 # Mean per-fold AUC range inside a single run. 22x SIGMA_DELTA, and NOT uncertainty:

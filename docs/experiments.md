@@ -43,6 +43,104 @@ The `× floor` column is now divided by the **locally measured** σ_delta = 0.00
 62×→56× and 28×→26×, which changes no verdict — both levers clear the gate by more than an order
 of magnitude.
 
+### 002 — feature blocks, cumulative ablation
+
+Same frozen folds, same fixed-round XGBoost the noise floor was measured on (lr 0.10 x 900,
+no early stopping, native categoricals). Cumulative: each row adds one block to the row above,
+so every delta answers *does this block pay on top of what we already have?* Raw numbers:
+[`ablation_002.json`](ablation_002.json), [`ablation_002_decimals.json`](ablation_002_decimals.json).
+
+| date | id | block | cols | pooled OOF | Δ vs prev | seeds | null sd | verdict |
+|---|---|---|---:|---:|---:|---:|---:|---|
+| 2026-08-26 | 002a | `raw` — the 12 columns, native categoricals | 12 | 0.964007 | baseline | 3 | — | — |
+| 2026-08-26 | 002b | **`budget`** — accounting residual + composition | 21 | 0.964633 | **+0.000626** | 3 | 1.0e-05 | **PAYS** |
+| 2026-08-26 | 002c | `cat_isna` — the 3 categorical missing flags | 24 | 0.964626 | −0.000007 | 3 | 1.8e-05 | **UNRESOLVED** |
+| 2026-08-26 | 002d | **`lattice`** — `frac` + `d1` on 6 fractional columns | 36 | 0.966235 | **+0.001609** | 3 | 2.4e-05 | **PAYS** |
+| 2026-08-26 | 002e | **`decimals`** — printed decimal places, mode-filled | 42 | 0.966347 | **+0.000112** | 3 | 2.1e-05 | **PAYS** |
+| 2026-08-26 | 002f | **`freq`** — transductive counts over 987,671 rows | 54 | 0.966977 | **+0.000609** | 1 | 4.1e-05 | **PAYS** |
+| 2026-08-26 | 002g | **`impute`** — XGB imputation *alongside* the NaNs | 63 | 0.967170 | **+0.000193** | 3 | 2.2e-05 | **PAYS** |
+| 2026-08-26 | 002h | **`te`** — nested stringified target encoding | 75 | **0.967910** | **+0.000740** | 1 | 2.4e-05 | **PAYS** |
+
+**+0.003903 over raw**, and +0.003539 over the `xgb_baseline` feature block scored on the same
+config (0.964371). Note the ranking is not the corpus ranking — see below.
+
+**`null sd` is per-comparison, not a constant.** It is `sqrt(sigma_a^2/n_a + sigma_b^2/n_b)` from
+the model-seed spread measured *on those two feature sets*; a block clears when |Δ| ≥ 2× it.
+Single-seed rows use the larger neighbouring sigma. This replaces the flat 0.00011 gate, which
+issue 003 measured on a different feature set — see the correction below.
+
+#### sigma_model is a property of the feature set, not of the box
+
+| feature set | cols | sigma_model |
+|---|---:|---:|
+| raw | 12 | 0.000005 |
+| + budget | 21 | 0.000018 |
+| + cat_isna | 24 | 0.000026 |
+| + lattice | 36 | **0.000032** |
+| + decimals | 42 | 0.000017 |
+| + impute | 63 | 0.000017 |
+| starter one-hot block (issue 003) | 34 | 0.000039 |
+
+It spans **7×** across feature sets and is **not monotonic in column count** — it rises to a peak
+near 36 columns and falls again once `freq`/`impute`/`te` supply dominant features. The reading:
+seed sensitivity is highest when many columns are comparably useful and `colsample_bytree` has
+real choices to make; it collapses when the model has either too little to choose from or one
+obvious thing to lock onto. **Consequence: the 0.00011 gate from issue 003 is not portable.**
+It belongs to the 34-column one-hot set it was measured on. Every ablation must carry its own
+sigma, which is what the table above does.
+
+#### The corpus ranking was wrong on this data
+
+| block | corpus Δ | measured Δ | ratio |
+|---|---:|---:|---:|
+| `lattice` (decimal lattice) | +0.0001 | **+0.001609** | **16×** |
+| `budget` (composition) | +0.0005 | +0.000626 | 1.3× |
+| `freq` (transductive counts) | +0.0003 | +0.000609 | 2.0× |
+| `decimals` | (part of lattice) | +0.000112 | — |
+| `cat_isna` | +0.0001 | −0.000007 | **0×** |
+| `impute` alongside | +0.0012 | +0.000193 | 0.16× |
+| `te` (stringified TE + freq) | +0.0023 | +0.000740 | 0.32× |
+
+Two separate effects, and they must not be confused:
+
+1. **The decimal lattice was mis-ranked, badly.** It was listed fifth of six at +0.0001 and is the
+   largest block by 2.6×. It is a value-encoding mechanism — `frac` and `d1` let the tree separate
+   individual printed values — which is the same job `max_bin` and target encoding do.
+2. **`te` and `impute` read low because they are substitutes, not because they failed.** By the
+   time they are added, `lattice` and `freq` have already extracted most of the exact-value signal.
+   Measured first instead of last they would price far higher. This is the same substitution the
+   corpus found between `max_bin` and value encoding (~60% of the sum survives), and it is why the
+   published deltas must never be added up.
+
+#### `decimals` — a CV↑/LB↓ trap, defused rather than accepted
+
+The first version of this block scored **+0.000133**, but `read_decimal_places` returns NaN
+wherever the field is missing, and that NaN pattern is **bit-identical to the raw missingness
+pattern**. So the block as written was a numeric missingness flag with a decimal bit attached —
+and numeric missingness flags are excluded precisely because they raise CV and lower LB by
+identifying the train/test split.
+
+Three checks separated the halves:
+
+| question | answer |
+|---|---|
+| Does the 1dp/2dp rate shift between train and test? | **No** — \|z\| < 1.7 in all six columns |
+| Does the bit predict `y` on rows where the value is present? | **Yes** — P(y\|1dp) 0.6821 vs P(y\|2dp) 0.7121 on `daily_screen_time_hours`, gap +0.0300 |
+| Is the NaN channel anything but missingness? | **No** — identical to the raw NaN mask |
+
+Filling missing with the mode keeps the bit and discards the channel. The gain survives at
+**+0.000112, i.e. 84% of the original** — so it was the generator's printed-precision artifact,
+not the train/test shift. The block ships mode-filled.
+
+#### Verdicts to carry into Phase 2
+
+- Ship `raw + budget + lattice + decimals + freq + impute + te` — registered as `xgb_features`.
+- **`cat_isna` is UNRESOLVED and is not shipped.** −0.000007 over three seeds per arm is not a
+  loss either; the corpus's +0.0001 simply does not reproduce. Recorded, not booked.
+- `max_bin` is still unpriced and must be measured *after* these blocks, not before: `lattice`,
+  `freq` and `te` all do the same value-separation job, so Phase 0's +0.00142 for
+  `max_bin` 255→2047 will shrink. That belongs to issue 006.
+
 ### What `xgb_baseline` established
 
 | | |
