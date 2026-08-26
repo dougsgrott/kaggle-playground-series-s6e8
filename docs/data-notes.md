@@ -206,13 +206,44 @@ discussion 737422.
 
 ## Measurement discipline
 
-### The noise floor
+### The noise floor — measured locally
 
-**≈ 0.00005** — the standard deviation of repeated-5-fold *means* across 3 partition seeds.
-The per-fold AUC range within a single run is roughly an order of magnitude larger and is **not**
-the noise floor; using it overstates uncertainty tenfold.
+Measured on this box 2026-08-26: **55 XGBoost-GPU fits, 6 partition seeds x 6 model seeds** on the
+starter feature block (pooled AUC ~0.9644, the same regime as the members). Every cell is in
+[`noise_floor.json`](noise_floor.json); the method is `scripts/noise_floor.py`.
 
-Independently, a single LightGBM configuration reseeded shows a spread of ±0.00004.
+"The noise floor" names two different quantities, and using the wrong one is how a nonexistent
+gain gets shipped:
+
+| quantity | value | what it gates |
+|---|---:|---|
+| **σ_partition** | **0.0000193** | comparing our CV to a number computed on a *different* split |
+| σ_model | 0.0000391 | one config re-seeded on the frozen partition |
+| **σ_delta** = √2·σ_model | **0.0000552** | an **A-vs-B delta** on the frozen partition — i.e. every row in [`experiments.md`](experiments.md) |
+| max observed null delta | 0.000101 | the largest gap two *identical* configs actually produced |
+| mean per-fold range | 0.001215 | **nothing.** 22× σ_delta |
+
+**σ_delta is the operative one.** No experiment in this repo varies the partition — they all hold
+it at seed 42 and change only the config — so the null distribution a delta must beat is the
+spread of two re-seeded arms of the *same* config, not the spread across splits.
+Practical gate: **an ablation must clear 2σ_delta = 0.00011.**
+
+Three findings worth carrying:
+
+1. **The model seed matters twice as much as the partition seed** (0.0000391 vs 0.0000193). Pooling
+   691,369 rows makes the choice of split nearly irrelevant — every row is predicted exactly once
+   by a model trained on ~553k rows either way — while `subsample`/`colsample_bytree` redraw in all
+   five models. So *repeated CV across partitions is the wrong way to buy precision on an
+   ablation.* Averaging model seeds is the right way: σ_delta falls as √n, to 0.000032 at 3 seeds
+   per arm and 0.000025 at 5.
+2. **The per-fold range is a property of the split, not an error bar.** On the frozen partition
+   fold 3 is genuinely easier by **+0.00097** and fold 0 harder by **−0.00061**, and that pattern
+   reproduced across all six model seeds. It is why the frozen partition's fold range
+   (0.00142–0.00170) is disjoint from every other partition's (0.00050–0.00116). Single-fold
+   probes on fold 0 therefore read roughly **0.0006 low** against a pooled number.
+3. **The corpus constant was right by luck.** Its 0.00005 is within 9% of our σ_delta (0.0000552),
+   but it was *labelled* as the partition quantity — and our partition quantity is 0.0000193, 2.9×
+   smaller. The number survived; the attribution did not.
 
 ### LB resolvability
 

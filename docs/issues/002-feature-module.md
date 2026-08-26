@@ -1,12 +1,34 @@
 # 002 — `src/s6e8/features.py`, the measured-positive set
 
-**Status:** open
+**Status:** open — **next**
 **Phase:** 1 — the real work
 **Do third** — after 004 and 003.
 
+## The gate, now that issue 003 has measured it
+
+**σ_delta = 0.000055; a block must clear 2σ = 0.00011 to count.** That is the null spread of an
+A/B delta on the frozen partition with both arms re-seeded — two *identical* configs were observed
+0.000101 apart.
+
+Consequences for the list below, and they are not cosmetic:
+
+- The **top four blocks are safe** — +0.0003 to +0.0023 is 5×–42× the gate.
+- The **decimal lattice at +0.0001 is under the gate.** So are the `__missing__` level (+0.0001),
+  10 encoding folds (+0.0001), constraint geometry (+0.00006) and regime-aware stacking
+  (+0.00004). Those corpus figures were gated at 1× a floor of the same size, which is a coin
+  flip. Build them last, and only price them with the multi-seed protocol below — or accept them
+  on structural grounds without claiming a measured gain.
+- **To resolve a block near the gate, average model seeds, not partitions.** The model seed
+  carries twice the variance of the partition seed here (0.000039 vs 0.000019), so σ_delta falls
+  as √n over seeds: 0.000032 at n=3, halving the gate to 0.000064. At ~2.6 min per 5-fold XGBoost
+  run that is ~8 min per arm — cheap enough to spend on any block whose expected gain is ≤0.0002,
+  and wasted on the ones above +0.0005.
+- **Never read the per-fold spread as uncertainty.** It runs ~0.0012–0.0017 on this partition and
+  is mostly fold 3 being reproducibly easier (+0.00097) and fold 0 harder (−0.00061).
+
 ## Scope, in descending measured value
 
-Build only these, in this order, ablating each against the **local** noise floor from issue 003:
+Build only these, in this order, ablating each against **2σ_delta = 0.00011**:
 
 - [ ] **Stringified target + frequency encoding**, all 12 columns, smoothing 10, nested 5×5 —
       **+0.0023 CV / +0.0017 LB**
@@ -67,8 +89,10 @@ Each was measured negative — the reason is recorded so it is not re-litigated:
 
 ## Exit criterion
 
-An ablation table in `docs/experiments.md` with every row expressed in multiples of the **local**
-noise floor, including the blocks that did not pay.
+An ablation table in `docs/experiments.md` with every row expressed in multiples of the measured
+σ_delta = 0.000055 and judged against 2σ = 0.00011, including the blocks that did not pay — and
+the blocks that came back *unresolved*, which is a third verdict this data will produce and which
+must not be recorded as either a win or a loss.
 
 ## Next
 

@@ -19,6 +19,25 @@ def load_test() -> pd.DataFrame:
     return df
 
 
+def make_fold_assignment(y: np.ndarray, seed: int = C.FOLD_SEED,
+                         n_splits: int = C.N_SPLITS) -> np.ndarray:
+    """Fold id per row from StratifiedKFold(shuffle=True, random_state=seed).
+
+    The single definition of the partition rule. `seed=42` is the frozen contract that
+    scripts/make_folds.py writes to data/folds.npy and every member trains on; other
+    seeds exist only inside the noise-floor measurement (docs/issues/003) and are never
+    written to disk.
+    """
+    from sklearn.model_selection import StratifiedKFold
+
+    folds = np.full(len(y), -1, dtype=np.int8)
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+    for k, (_, valid_idx) in enumerate(skf.split(np.zeros(len(y)), y)):
+        folds[valid_idx] = k
+    assert (folds >= 0).all(), "some rows were never assigned a fold"
+    return folds
+
+
 def load_folds() -> np.ndarray:
     """Fold id per train row, in train.csv order. Written by scripts/make_folds.py."""
     folds = np.load(C.FOLDS_NPY)

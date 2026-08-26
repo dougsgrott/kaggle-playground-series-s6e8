@@ -65,9 +65,10 @@ with `scripts/make_folds.py`, never inline.
    nested CV. Calibration: **nested honest CV ≈ LB − 0.0011**.
 3. **Any fitted blend weight goes through nested CV** — fit on 4 folds, score on the 5th. Naive
    full-OOF weight fitting reports a premium that does not exist out of sample.
-4. **No claimed gain below the noise floor.** ~1e-4 on CV; ~7e-5 on LB for correlated
-   submissions, ~1.3e-3 for uncorrelated ones. Rank movement is not evidence: a change that moves
-   40 places but moves the score by less than 1e-4 has measured nothing.
+4. **No claimed gain below the noise floor.** On CV the gate is **2σ_delta = 0.00011**, measured
+   here over 55 fits (issue 003): two *identical* configs landed 0.000101 apart. On LB it is ~7e-5
+   for correlated submissions, ~1.3e-3 for uncorrelated ones. Rank movement is not evidence: a
+   change that moves 40 places but moves the score by less than 1e-4 has measured nothing.
 5. **Audit borrowed members for the level-2 trap.** A member whose own features are somebody
    else's level-1 OOF columns built on a different partition is row-honest but leaks through other
    rows' columns. It moves CV and LB in *opposite* directions. Filter any external manifest's
@@ -84,6 +85,7 @@ uv sync                                 # install/refresh the environment
 uv run python scripts/make_folds.py     # -> data/folds.npy, the frozen partition (idempotent)
 uv run python scripts/check_env.py      # gate: libraries, GPU, shapes, invariants — must PASS
 uv run python scripts/benchmark.py      # real per-member training cost on this machine
+uv run python scripts/noise_floor.py    # -> docs/noise_floor.json, sigma_delta / sigma_partition
 uv run kaggle competitions leaderboard playground-series-s6e8 -s
 uv run wikikit daily                    # refresh LB snapshot + digests
 ```
@@ -139,8 +141,11 @@ uv run python scripts/build_stack.py                        # Phase 3 -> nested-
 
 - CV is the referee for direction; ship no change without an OOF delta and a row in
   `docs/experiments.md` — negative results included.
-- Establish the noise floor (repeated CV across partition seeds) before believing any ablation.
-  Per-fold spread is not the noise floor and overstates it by roughly an order of magnitude.
+- The noise floor is measured, not assumed: `config.SIGMA_DELTA` = 5.5e-5 for an A/B delta on the
+  frozen folds, `config.SIGMA_PARTITION` = 1.9e-5 across splits. Per-fold spread is **neither** —
+  it is 22× larger and is dominated by fold 3 being reproducibly easier on this partition.
+- To resolve a delta near the floor, average **model seeds**, not partition seeds. The model seed
+  carries twice the variance of the partition seed here, and σ_delta falls as √n.
 - Prefer capacity before features: on this data `num_leaves` 15→31 was worth 18× the entire
   feature-engineering block, and it made those features worthless once applied.
 - A new stack member must be **decorrelated AND comparably strong**. Rank correlation above ~0.99

@@ -12,22 +12,19 @@ from __future__ import annotations
 import hashlib
 
 import numpy as np
-from sklearn.model_selection import StratifiedKFold
 
 from s6e8 import config as C
-from s6e8.data import load_train
+from s6e8.data import load_train, make_fold_assignment
 
 
 def main() -> None:
     train = load_train()
     y = train[C.TARGET].to_numpy(np.int8)
 
-    folds = np.full(len(train), -1, dtype=np.int8)
-    skf = StratifiedKFold(n_splits=C.N_SPLITS, shuffle=True, random_state=C.FOLD_SEED)
-    for k, (_, valid_idx) in enumerate(skf.split(np.zeros(len(y)), y)):
-        folds[valid_idx] = k
+    # The rule itself lives in s6e8.data so the noise-floor sweep varies the seed
+    # against exactly the same code path. See docs/issues/003.
+    folds = make_fold_assignment(y, seed=C.FOLD_SEED, n_splits=C.N_SPLITS)
 
-    assert (folds >= 0).all(), "some rows were never assigned a fold"
     counts = np.bincount(folds, minlength=C.N_SPLITS)
     rates = [float(y[folds == k].mean()) for k in range(C.N_SPLITS)]
 

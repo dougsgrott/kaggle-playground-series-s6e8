@@ -96,7 +96,7 @@ def starter_features(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def _starter_matrices(train: pd.DataFrame, test: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+def starter_matrices(train: pd.DataFrame, test: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     """One-hot the three categoricals over train+test so columns line up exactly."""
     tr = starter_features(train.drop(columns=[C.TARGET])).drop(columns=[C.ID_COL])
     te = starter_features(test).drop(columns=[C.ID_COL])
@@ -116,7 +116,7 @@ def build_xgb_baseline(train: pd.DataFrame, test: pd.DataFrame, y: np.ndarray):
     import xgboost as xgb
 
     print(f"  {assert_xgboost_gpu()}", flush=True)
-    X, X_test = _starter_matrices(train, test)
+    X, X_test = starter_matrices(train, test)
     print(f"  design matrix {X.shape} / {X_test.shape}  "
           f"{X.memory_usage(deep=True).sum() / 1024 ** 2:.0f} MB", flush=True)
 

@@ -153,8 +153,11 @@ encodings, never add the two published gains together.
 ### Harness
 
 - `src/s6e8/cv.py` — loads `data/folds.npy`, runs a member, writes the positional OOF contract.
-- **Establish the noise floor first**: repeated 5-fold across 3 partition seeds, std of the *means*
-  ≈ **0.00005**. The per-fold range inside one run is ~10× larger and is not the noise floor.
+- **The noise floor is measured** (issue 003, 55 fits): **σ_delta = 0.000055**, so an ablation on
+  the frozen folds must clear **2σ = 0.00011**. σ_partition is a separate, smaller 0.000019 and
+  applies only to comparisons across splits. The per-fold range inside one run is 22× σ_delta and
+  is not an error bar — on the frozen partition it is mostly fold 3 being reproducibly easier.
+  Buy precision by averaging **model seeds**, not partitions: σ_delta falls as √n.
 - Port `analysis/nb_clean/cdeotte__simple-xgb-starter.py` → first submission, first CV↔LB anchor
   point in `submissions/log.md`.
 
@@ -382,7 +385,7 @@ not. Timebox is a hard stop — the known-good pipeline has priority.
 | **Silent pandas ≥ 3.0 TE trap** | medium | `astype(object).fillna("__missing__").astype(str)` + a coverage assertion in the encoder |
 | **Level-2 leak** from a borrowed member | medium | `family` filter; CV↑/LB↓ is the signature |
 | **Fold misalignment** in a borrowed array | medium | Phase 4 benchmark reproduces external manifest AUCs before anything is trusted |
-| **Chasing noise** | medium | Noise floor measured in Phase 1; every ledger row expressed in multiples of it |
+| **Chasing noise** | medium | Floor measured (σ_delta 0.000055, issue 003); gate is 2σ = 0.00011, every ledger row expressed in multiples of it |
 
 ---
 
@@ -395,8 +398,8 @@ Next up: **003 → 002**, with 014 running in parallel from day 2. (004 is done.
 |---|---|---|---|
 | 001 | 0 | [Environment, data, frozen folds](issues/001-phase-0-ground-truth.md) | **done** |
 | 004 | 1 | [Baseline member + first submission](issues/004-baseline-first-submission.md) | **done** — OOF 0.964869 → LB 0.96640 |
-| 003 | 1 | [Noise floor, local measurement](issues/003-noise-floor.md) | **next** |
-| 002 | 1 | [`features.py` — measured-positive blocks](issues/002-feature-module.md) | open |
+| 003 | 1 | [Noise floor, local measurement](issues/003-noise-floor.md) | **done** — σ_delta 0.000055, gate 0.00011 |
+| 002 | 1 | [`features.py` — measured-positive blocks](issues/002-feature-module.md) | **next** |
 | 007 | 2 | XGBoost GPU members across feature views — **the workhorse** | open |
 | 005 | 2 | CatBoost native-categorical member (blocked by [016](issues/016-catboost-gpu-eval-metric.md)) | open |
 | 006 | 2 | LightGBM value-encoding member (`max_bin` sweep) | open |
