@@ -10,22 +10,25 @@ The full task index lives in [`../ROADMAP.md`](../ROADMAP.md#task-index). This t
 
 | order | # | title | est. | status |
 |---:|---|---|---|---|
-| 1 | 007 | Phase 2 — XGBoost GPU members across feature views | the main effort | **next** |
+| 1 | 006 | LightGBM + `max_bin` sweep — the strongest single family | ~3 h | **next** |
+| 2 | — | NN members: Lookup-Transformer, RealMLP | the diversity | open |
+| 3 | 005 | CatBoost native categoricals (blocked by [016](016-catboost-gpu-eval-metric.md)) | ~2 h | open |
 
-`xgb_features` is registered and ablated (+0.003903 over raw, OOF 0.967910 on the cheap
-fixed-round config). The first job in Phase 2 is a real OOF from it with early stopping, and a
-submission — the CV→LB line still rests on a **single** point at CV 0.9649, and a second one near
-CV 0.968 is what makes the slope usable for final selection.
+**Stop building XGBoost views.** Issue 007 settled it: five members span ρ 0.9859–0.9980 and the
+marginal one is worth ~1e-05. Real decorrelation needs other families — the corpus's GBDT→NN figure
+is ρ 0.974 at blend weight 0.22, a regime trees cannot reach. That makes the **NN members higher
+value than any remaining tree work**, ahead of their roadmap position.
 
-Two findings from 002 that change how Phase 2 measures things:
+Two rules changed under measurement and Phase 2 should carry the amended versions:
 
-- **σ_model is a property of the feature set, not the box.** It spans 7× across the sets measured
-  (0.000005 → 0.000032) and is not monotonic in column count. The 0.00011 gate from issue 003 is
-  not portable; every ablation carries its own null sd. See
-  [`003`](003-noise-floor.md#amended-by-issue-002--the-gate-is-not-portable).
-- **Published deltas are substitutes and must never be summed.** `lattice`, `freq`, `te` and
-  `max_bin` all do value separation. Measured last, `te` priced at 0.32× its published value.
-  This is why 006 must sweep `max_bin` *after* the encodings, not before.
+- **Do not discard a member on rank correlation alone.** Contribution came out rank-ordered
+  *backwards* by ρ over our own five members. Amended in `CLAUDE.md`; the strength half stands.
+- **A cumulative-ablation delta belongs to the block *and the order*.** The lattice/TE pair
+  inverts depending on which is measured first. Price a substitute pair in both orders or report
+  neither number as the block's value.
+
+A Phase-3 stack of the current five is worth **+0.000334 nested** (0.968948) and is the obvious
+next submission — but the CV→LB line wants its third point on a **different day**.
 
 ## In parallel
 
@@ -48,3 +51,4 @@ Two findings from 002 that change how Phase 2 measures things:
 | 004 | [Baseline member and the first submission](004-baseline-first-submission.md) | done 2026-08-26 · OOF 0.964869 → LB **0.96640** |
 | 003 | [Measure the noise floor locally](003-noise-floor.md) | done 2026-08-26 · 55 fits · σ_delta **0.000055** (feature-set specific — amended by 002) |
 | 002 | [`features.py`, the measured-positive set](002-feature-module.md) | done 2026-08-26 · **+0.003903** over raw · 6 blocks ship, 1 UNRESOLVED |
+| 007 | [XGBoost GPU members across feature views](007-xgboost-feature-views.md) | done 2026-08-26 · 5 members · LB **0.96989**, rank ~685/3022 · admission rule inverted |

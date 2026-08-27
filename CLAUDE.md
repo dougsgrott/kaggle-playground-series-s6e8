@@ -148,8 +148,14 @@ uv run python scripts/build_stack.py                        # Phase 3 -> nested-
   carries twice the variance of the partition seed here, and σ_delta falls as √n.
 - Prefer capacity before features: on this data `num_leaves` 15→31 was worth 18× the entire
   feature-engineering block, and it made those features worthless once applied.
-- A new stack member must be **decorrelated AND comparably strong**. Rank correlation above ~0.99
-  to an existing member, or more than ~0.006 AUC weaker, and it earns weight 0.000.
+- **Do not reject a stack member on rank correlation alone.** The corpus rule ("rank corr above
+  ~0.99 to an existing member earns weight 0.000") was tested on our own members in issue 007 and
+  came out **backwards**: at ρ 0.9928 `xgb_no_te` adds +0.000228 under nested CV, at ρ 0.9980
+  `xgb_te_only` adds +0.000135, while the *most* decorrelated member (ρ 0.9865) adds the least,
+  +0.000108. The rule is plausibly right for a 70-member stack that already covers every direction
+  and wrong at small N, where a correlated member still buys variance reduction — so re-test it as
+  the zoo grows rather than trusting either version. The **strength** half stands: more than
+  ~0.006 AUC weaker than the best and a member is not worth carrying.
 - After finishing a piece of work, output recommendations on how to proceed or which task to pick
   up next.
 

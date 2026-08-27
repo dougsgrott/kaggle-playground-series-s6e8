@@ -12,30 +12,46 @@ Budget: **10 per day**, **2** final selections. Deadline 2026-08-31 23:59 UTC.
 
 | # | date | tag | artifact | OOF | public LB | offset | final pick | notes |
 |---|---|---|---|---|---|---|---|---|
-| 1 | 2026-08-26 | `xgb_baseline` | `oof/{oof,test}_xgb_baseline.npy` | 0.964869 | **0.96640** | +0.001531 | — | ref 55801067 · issue 004 · ~rank 1154/2987 |
+| 1 | 2026-08-26 | `xgb_baseline` | `oof/{oof,test}_xgb_baseline.npy` | 0.964869 | **0.96640** | +0.001531 | — | ref 55801067 · issue 004 · ~rank 1169/3022 |
+| 2 | 2026-08-26 | `xgb_features` | `oof/{oof,test}_xgb_features.npy` | 0.968616 | **0.96989** | +0.001274 | — | ref 55804397 · issue 007 · ~rank **685/3022** (top 22.7%) |
 
-**9 submissions remaining today.**
+**8 submissions remaining today.**
 
 ## The CV→LB line
 
-The whole reason submission 1 was made before the feature work. Two points define nothing, so this
-starts the fit rather than finishing it — but the first point already says something useful:
+Two points now, so there is a slope for the first time.
 
-| CV | LB | offset |
-|---|---|---|
-| 0.964869 | 0.96640 | **+0.001531** |
+| # | CV | LB | offset |
+|---|---|---|---|
+| 1 | 0.964869 | 0.96640 | +0.001531 |
+| 2 | 0.968616 | 0.96989 | +0.001274 |
 
-The corpus line (+0.00150 at CV 0.9660 decaying to +0.00109 at CV 0.9696) predicts **+0.001629**
-here. Observed is **+0.001531** — a residual of **−9.8e-05**, which is inside the ~1e-4 range where
-a single public score cannot resolve anything anyway.
+**The corpus line predicted submission 2 at 0.96982; it scored 0.96989 — a residual of +7.2e-05**,
+inside the ~7e-05 the public split can resolve between correlated submissions. Two independent
+predictions now, both within 1e-04. The line transfers.
 
-**So the published line transfers to our pipeline.** Until we have points of our own at higher CV,
-use it to sanity-check a submission before spending a slot: a member at CV *x* should land near
-`x + 0.00150 − 0.1139·(x − 0.9660)`. A submission that misses that by much more than 1e-4 is
-evidence of a pipeline problem, not of a better model.
+### Our own slope, and why it is not yet a replacement
 
-Next points wanted at **CV ≈ 0.967 and ≈ 0.970**, spread across days — the line's value is its
-slope, and two clustered points cannot measure one.
+Fitting our two points gives **−0.0686 ± 0.0264** against the corpus's **−0.1139** — 1.7 standard
+errors apart, so not a contradiction, but not a confirmation either. The standard error comes
+straight from the ~7e-05 resolution on each offset divided by the 0.0037 CV span between the
+points; a *third* point at higher CV is what shrinks it, and the span is what does the work.
+
+Where the two disagree in practice, at the CV levels that matter for selection:
+
+| CV | LB, our slope | LB, corpus slope | spread |
+|---|---|---|---|
+| 0.9700 | 0.97118 | 0.97104 | 1.4e-04 |
+| 0.9705 | 0.97164 | 0.97149 | 1.5e-04 |
+| 0.9710 | 0.97211 | 0.97193 | 1.8e-04 |
+
+The disagreement is ~1.5e-04 — larger than the noise floor, so it is worth resolving, but small
+relative to the gap between a good stack and a bad one. **Use the corpus slope as the prior until a
+third point lands**; it is fitted on eight observations rather than two, and it is the more
+conservative of the two (it predicts *lower* LB, so it will not flatter a submission).
+
+Next point wanted at **CV ≈ 0.970+, on a different day** — day separation is not superstition here,
+it is the only way to avoid fitting a slope to two runs of the same pipeline on the same afternoon.
 
 ## Final selections
 

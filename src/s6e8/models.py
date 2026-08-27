@@ -165,34 +165,88 @@ FEATURES_XGB_PARAMS = dict(
 )
 
 
-@register("xgb_features")
-def build_xgb_features(train: pd.DataFrame, test: pd.DataFrame, y: np.ndarray):
+def _xgb_view(train: pd.DataFrame, test: pd.DataFrame, y: np.ndarray,
+              blocks=FEATURE_BLOCKS, use_te: bool = True, **overrides):
+    """Build a FitPredict over one feature view. The Phase-2 XGBoost workhorse.
+
+    Views differ by which BLOCKS they carry, not by seed: the admission rule kills
+    members whose rank correlation to an existing one exceeds ~0.99, and reseeding the
+    same feature set has been measured at +0.00002 blend contribution. See docs/issues/007.
+    """
     import xgboost as xgb
 
     from s6e8.features import NestedTargetEncoder, build_static
 
     print(f"  {assert_xgboost_gpu()}", flush=True)
     fs = build_static(train, test, n_jobs=n_threads())
-    cols = fs.columns(FEATURE_BLOCKS)
+    cols = fs.columns(blocks)
     X, X_test = fs.train[cols], fs.test[cols]
-    encoder = NestedTargetEncoder(train, test, y)
-    print(f"  design matrix {X.shape[0]:,} x {X.shape[1]} static "
-          f"+ {len(encoder.names)} target-encoded", flush=True)
+    encoder = NestedTargetEncoder(train, test, y) if use_te else None
+    n_te = len(encoder.names) if encoder else 0
+    print(f"  blocks {list(blocks)}  te={use_te}", flush=True)
+    print(f"  design matrix {X.shape[0]:,} x {X.shape[1]} static + {n_te} target-encoded",
+          flush=True)
 
-    params = dict(FEATURES_XGB_PARAMS, device="cuda", n_jobs=n_threads())
+    params = dict(FEATURES_XGB_PARAMS, device="cuda", n_jobs=n_threads(), **overrides)
     best_iters: list[int] = []
 
     def fit_predict(fold: int, train_idx: np.ndarray, valid_idx: np.ndarray):
-        # Rebuilt per fold: the encoder reads y, so it can never be precomputed.
-        e_tr, e_va, e_te = encoder.build(train_idx, valid_idx)
-        Xa = pd.concat([X.iloc[train_idx].reset_index(drop=True), e_tr], axis=1)
-        Xb = pd.concat([X.iloc[valid_idx].reset_index(drop=True), e_va], axis=1)
-        Xt = pd.concat([X_test.reset_index(drop=True), e_te], axis=1)
+        Xa = X.iloc[train_idx].reset_index(drop=True)
+        Xb = X.iloc[valid_idx].reset_index(drop=True)
+        Xt = X_test.reset_index(drop=True)
+        if encoder is not None:
+            # Rebuilt per fold: the encoder reads y, so it can never be precomputed.
+            e_tr, e_va, e_te = encoder.build(train_idx, valid_idx)
+            Xa = pd.concat([Xa, e_tr], axis=1)
+            Xb = pd.concat([Xb, e_va], axis=1)
+            Xt = pd.concat([Xt, e_te], axis=1)
 
         model = xgb.XGBClassifier(**params)
         model.fit(Xa, y[train_idx], eval_set=[(Xb, y[valid_idx])], verbose=False)
         best_iters.append(int(model.best_iteration) + 1)
         return (model.predict_proba(Xb)[:, 1], model.predict_proba(Xt)[:, 1])
 
-    fit_predict.extra = {"best_iters": best_iters, "blocks": list(FEATURE_BLOCKS)}
+    fit_predict.extra = {"best_iters": best_iters, "blocks": list(blocks), "te": use_te,
+                         **{k: v for k, v in overrides.items()}}
     return fit_predict
+
+
+@register("xgb_features")
+def build_xgb_features(train, test, y):
+    """The flagship: every block that paid in issue 002, plus nested target encoding."""
+    return _xgb_view(train, test, y)
+
+
+@register("xgb_no_te")
+def build_xgb_no_te(train, test, y):
+    """Drops the target-reading mechanism entirely.
+
+    Value separation then has to come from `lattice` and `freq` alone. Those are
+    substitutes for target encoding (issue 002), so this should stay strong while
+    making different mistakes -- the shape a stack member wants.
+    """
+    return _xgb_view(train, test, y, use_te=False)
+
+
+@register("xgb_te_only")
+def build_xgb_te_only(train, test, y):
+    """The opposite bet: target encoding WITHOUT the lattice.
+
+    `lattice` was the largest single block (+0.001609) and `te` the second (+0.000740),
+    and they do the same job by different means. Removing the lattice forces the model
+    onto the target-statistics route and should decorrelate it from the flagship more
+    than any hyperparameter change could.
+    """
+    return _xgb_view(train, test, y, blocks=("raw", "budget", "freq", "impute"))
+
+
+@register("xgb_deep")
+def build_xgb_deep(train, test, y):
+    """Same features, different bias/variance point -- EXPECTED TO FAIL ADMISSION.
+
+    Run once on purpose. "Same algorithm, different params -> weight 0.000" and
+    "tree depth 9-13 costs up to -0.0011" are both corpus claims this repo has not
+    tested itself, and a member that earns weight 0.000 is a cheap, recorded negative.
+    """
+    return _xgb_view(train, test, y, max_depth=10, min_child_weight=40,
+                     learning_rate=0.03)

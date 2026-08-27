@@ -208,8 +208,16 @@ running them locally is the fastest route to a diverse zoo that is genuinely our
 
 ### Admission rule for a new member
 
+> **Amended by issue 007 — the correlation half of this rule does not hold on our data.**
+> Measured with a nested-CV blend over our own four XGBoost members: contribution is rank-ordered
+> *backwards* by correlation. `xgb_no_te` (ρ 0.9928) adds **+0.000228**, `xgb_te_only` (ρ 0.9980)
+> adds +0.000135, and the most decorrelated member (ρ 0.9865) adds the least at +0.000108. All four
+> together are worth +0.000318 over the anchor. The likely reconciliation is stack size: at 70
+> members a 0.99-correlated addition really is redundant, at four it still reduces variance.
+> **Do not discard members on ρ alone at this stage.** The strength half stands.
+
 **Decorrelated *and* comparably strong.** Rank correlation above ~0.99 to an existing member, or
-more than ~0.006 AUC weaker, and it earns weight 0.000 — measured repeatedly:
+more than ~0.006 AUC weaker, and it earns weight 0.000 — measured repeatedly in the corpus:
 
 | pair | rank corr | blend contribution |
 |---|---:|---|
@@ -402,9 +410,9 @@ Next up: **003 → 002**, with 014 running in parallel from day 2. (004 is done.
 | 004 | 1 | [Baseline member + first submission](issues/004-baseline-first-submission.md) | **done** — OOF 0.964869 → LB 0.96640 |
 | 003 | 1 | [Noise floor, local measurement](issues/003-noise-floor.md) | **done** — σ_delta 0.000055, gate 0.00011 |
 | 002 | 1 | [`features.py` — measured-positive blocks](issues/002-feature-module.md) | **done** — +0.003903 over raw, OOF 0.967910 |
-| 007 | 2 | XGBoost GPU members across feature views — **the workhorse** | **next** |
+| 007 | 2 | [XGBoost GPU members across feature views](issues/007-xgboost-feature-views.md) — **the workhorse** | **done** — 5 members, LB 0.96989 |
 | 005 | 2 | CatBoost native-categorical member (blocked by [016](issues/016-catboost-gpu-eval-metric.md)) | open |
-| 006 | 2 | LightGBM value-encoding member (`max_bin` sweep) | open |
+| 006 | 2 | LightGBM value-encoding member (`max_bin` sweep) | **next** |
 | 008 | 2 | Lookup-Transformer member | open |
 | 009 | 2 | RealMLP + TabM members, missingness augmentation | open |
 | 010 | 3 | Nested logit-space logistic stack + QC gates | open |

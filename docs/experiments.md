@@ -43,6 +43,76 @@ The `× floor` column is now divided by the **locally measured** σ_delta = 0.00
 62×→56× and 28×→26×, which changes no verdict — both levers clear the gate by more than an order
 of magnitude.
 
+### 007 — XGBoost feature views, and the admission rule
+
+Real members: early stopping, lr 0.035 (0.03 for `xgb_deep`), cap 6000, on the frozen folds.
+Each exports the positional OOF contract. Matrix and blend: `scripts/member_matrix.py`.
+
+| date | id | member | blocks | solo OOF | vs best | ρ to flagship | LB |
+|---|---|---|---|---:|---:|---:|---:|
+| 2026-08-26 | 007a | **`xgb_features`** | all six + `te` | **0.968616** | — | — | **0.96989** |
+| 2026-08-26 | 007b | `xgb_te_only` | `raw`+`budget`+`freq`+`impute` + `te` | 0.968596 | −0.000020 | 0.9980 | — |
+| 2026-08-26 | 007c | `xgb_deep` | all six + `te`, depth 10 | 0.968531 | −0.000085 | 0.9976 | — |
+| 2026-08-26 | 007d | `xgb_no_te` | all six, **no** `te` | 0.967691 | −0.000925 | 0.9928 | — |
+| 2026-08-26 | 004 | `xgb_baseline` | starter block | 0.964869 | −0.003747 | 0.9865 | 0.96640 |
+
+#### The admission rule is backwards at this stack size
+
+Nested-CV logit blend — weights fitted on 4 folds, scored on the 5th, never naively on the full
+OOF (non-negotiable #3).
+
+| added to `xgb_features` | ρ | corpus rule says | **actually adds** |
+|---|---:|---|---:|
+| `xgb_no_te` | 0.9928 | REJECT | **+0.000228** |
+| `xgb_te_only` | 0.9980 | REJECT | +0.000135 |
+| `xgb_baseline` | 0.9865 | ADMIT | +0.000108 |
+| `xgb_deep` | 0.9976 | REJECT | +0.000100 |
+| **all five** | — | 2 of 5 admitted | **+0.000334** → nested 0.968948 |
+
+**Contribution is rank-ordered backwards by correlation.** The rule as written would have kept the
+two least useful members and discarded the most useful one. For scale, +0.000334 from five members
+is more than the corpus's entire 205-member fusion pyramid buys over a good honest stack (~0.0001).
+
+The reconciliation is probably **stack size, not a broken corpus**: at 70 members a 0.99-correlated
+addition really is redundant because something already covers that direction, while at five it
+still buys variance reduction. Two observations support saturation rather than a linear rule — the
+5th member adds only **+0.000016** on top of the 4th, and the pairwise contributions (0.000100 to
+0.000228) are far smaller than their sum would suggest. **Do not discard members on ρ alone yet;
+re-test as the zoo grows.** The strength half of the rule is untouched.
+
+#### Feature views inside one algorithm barely decorrelate
+
+Every pair sits at ρ 0.9859–0.9980, and the floor is set by the *weakest* member, not the most
+structurally different one. Dropping target encoding entirely — a completely different mechanism —
+only reaches ρ 0.9928. **Diversity has to come from other model families, not more XGBoost views.**
+The corpus figure for GBDT→NN with value embeddings is ρ 0.974 with blend weight 0.22, which is a
+different regime from anything reachable here. Consequence for Phase 2: stop adding XGBoost views,
+and prioritise the Lookup-Transformer and RealMLP members over more tree variants.
+
+#### Two corpus claims that did not reproduce
+
+| claim | corpus | measured here |
+|---|---:|---:|
+| decimal lattice, measured *after* target encoding | +0.0001 | +0.00002 — **agrees**, see below |
+| tree depth 9–13 | to −0.0011 | **−0.000085** |
+
+**The lattice/TE ordering artifact, resolved.** Issue 002 reported the decimal lattice at
++0.001609, sixteen times its published value, and flagged that as the headline finding. `xgb_te_only`
+prices the same pair in the opposite order and the picture inverts: dropping the lattice costs
+**0.00002** when `te` is present, while dropping `te` costs **0.000925** when the lattice is
+present. Target encoding dominates; the cumulative chain simply handed the lattice credit for
+signal the two share because it was measured first.
+
+This **reconciles issue 002 with the corpus** rather than contradicting it — the corpus measured the
+lattice with TE already in place, which is exactly the +0.00002 condition. Both numbers are right;
+neither is a standalone property of the block. **The general lesson is that no single-block delta
+from a cumulative ablation is a property of the block** — it is a property of the block *and the
+order*. Where two features are substitutes, whichever is measured first takes the credit.
+
+`xgb_deep` at depth 10 costing only 0.000085 is the second non-reproduction, and it is why it was
+run: "same algorithm, different params → weight 0.000" was worth one cheap test, and it also earned
++0.000100 in the blend rather than the predicted zero.
+
 ### 002 — feature blocks, cumulative ablation
 
 Same frozen folds, same fixed-round XGBoost the noise floor was measured on (lr 0.10 x 900,
